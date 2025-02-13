@@ -13,6 +13,7 @@ The idea is that the orchestrator agent should answer with strictly valid JSON, 
 ## Prerequisites
 
 * Java 21
+* `OPENAPI_KEY` in `src/main/resources/application.properties` 
 
 ## Run
 
