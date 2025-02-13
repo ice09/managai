@@ -6,8 +6,12 @@ import org.springframework.stereotype.Service;
 import tech.indus340.managai.agentflow.dto.ResultResponse;
 import tech.indus340.managai.chatbot.OrchestratorAgent;
 
+import java.util.logging.Logger;
+
 @Service
 public class AgentFlowEngine {
+
+    private static final Logger LOGGER = Logger.getLogger(AgentFlowEngine.class.getName());
 
     private final OrchestratorAgent orchestratorAgent;
     private final ObjectMapper objectMapper;
@@ -21,7 +25,7 @@ public class AgentFlowEngine {
 
     public ResultResponse agentFlow(String userMessage) throws JsonProcessingException {
         String resultJson = orchestratorAgent.chat(userMessage);
-        System.out.println(resultJson);
+        LOGGER.info(resultJson);
         return objectMapper.readValue(resultJson, ResultResponse.class);
     }
 
@@ -35,14 +39,13 @@ public class AgentFlowEngine {
                 answers.append("\n###\nANSWER ").append(agent.name()).append("\n###\n")
                         .append(workerAgentFactory.build(systemMessage, modelName, temp).chat(answers.toString())).append("\n");
             }
-            System.out.println(answers);
+            LOGGER.info(answers.toString());
             return answers.toString();
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.severe(e.getMessage());
         }
         return null;
-        //return answers.toString();
     }
 
 }
