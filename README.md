@@ -18,4 +18,8 @@ The idea is that the orchestrator agent should answer with strictly valid JSON, 
 ## Run
 
 * Start `./gradlew bootRun`
-* Open `http://localhost:8080/`
+* Open http://localhost:8080/
+
+## Debug
+
+* Open http://localhost:8080/swagger-ui.html
