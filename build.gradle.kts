@@ -31,7 +31,7 @@ dependencies {
 	implementation("com.openai:openai-java:0.8.0")
 	implementation("com.fasterxml.jackson.core:jackson-databind:2.14.2")
 	implementation("dev.langchain4j:langchain4j:0.36.2")
-	implementation("dev.langchain4j:langchain4j-open-ai:0.36.2")
+	implementation("dev.langchain4j:langchain4j-open-ai:1.0.0-beta1")
 }
 
 tasks.withType<Test> {

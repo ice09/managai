@@ -14,11 +14,18 @@ public class WorkerAgentConfig {
     private String openAIKey;
 
     public ChatLanguageModel workerModel(String modelName, double temp) {
+        if (temp < 0) {
+            return OpenAiChatModel.builder()
+                    .apiKey(openAIKey)
+                    .modelName(modelName)
+                    .timeout(ofSeconds(720))
+                    .build();
+        }
         return OpenAiChatModel.builder()
                 .apiKey(openAIKey)
                 .modelName(modelName)
                 .temperature(temp)
-                .timeout(ofSeconds(360))
+                .timeout(ofSeconds(720))
                 .build();
     }
 

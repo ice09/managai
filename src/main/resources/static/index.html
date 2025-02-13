@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Execution Plan Workflow</title>
+    <!-- Include Vue.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <!-- Include Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* Ensure padding is included in element dimensions */
+        * {
+            box-sizing: border-box;
+        }
+        /* Remove all page scrollbars */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+        /* Global High Contrast Light Theme */
+        body {
+            background-color: #ffffff;
+            color: #000;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            text-align: center;
+            margin: 20px 0;
+        }
+        /* Tabs Navigation */
+        .tabs {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .tabs button {
+            padding: 10px 20px;
+            margin: 0 5px;
+            border: 1px solid #000;
+            background: #fff;
+            cursor: pointer;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .tabs button.active {
+            background: #000;
+            color: #fff;
+        }
+        /* Container for Tab Content */
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 120px); /* Adjust height so that header & tabs plus container fill the viewport */
+            padding: 20px;
+        }
+        .scrollable {
+            overflow-y: auto;
+            flex: 1;
+        }
+        /* Prompt Tab Styles */
+        .prompt-container textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #000;
+            border-radius: 8px;
+        }
+        .prompt-container button {
+            margin-top: 10px;
+            padding: 15px 25px;
+            font-size: 18px;
+            border: none;
+            background-color: #008CBA;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .prompt-container button:hover {
+            background-color: #005f8e;
+        }
+        .prompt-container button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            color: #666;
+        }
+        /* Plan Tab – scaled down elements */
+        .plan-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0; /* Allow flex children to shrink */
+        }
+        .plan-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .flow-overview {
+            font-size: 14px;
+            color: #000;
+            font-weight: bold;
+        }
+        .execute-button {
+            padding: 15px 25px;
+            font-size: 18px;
+            border: none;
+            background-color: #28a745;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .execute-button:hover {
+            background-color: #1e7e34;
+        }
+        .execute-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            color: #666;
+        }
+        .plan-main {
+            display: flex;
+            flex: 1;
+            min-height: 0; /* Allow children to shrink */
+        }
+        .flow-container {
+            flex: 2;
+            padding-right: 20px;
+            border-right: 2px solid #000;
+            overflow-y: auto;
+            min-height: 0; /* Ensure this container can scroll */
+        }
+        .node-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 0; /* Ensure wrapper does not force height */
+        }
+        .flow-node {
+            background-color: #fff;
+            border: 2px solid #000;
+            padding: 12px;
+            margin: 5px 0;
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: center;
+            width: 70%;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+            position: relative;
+        }
+        .flow-node:hover {
+            transform: scale(1.03);
+            box-shadow: 0 0 8px rgba(0,0,0,0.3);
+        }
+        .flow-node.inactive {
+            opacity: 0.5;
+        }
+        .node-name {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+        .node-meta {
+            font-size: 12px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        /* Inline toggle button on each node */
+        .toggle-active-inline {
+            font-size: 12px;
+            padding: 4px 8px;
+            border: none;
+            background-color: #9c27b0;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+            position: absolute;
+            top: 5px;
+            right: 5px;
+        }
+        .toggle-active-inline:hover {
+            background-color: #7b1fa2;
+        }
+        .arrow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .arrow svg {
+            fill: none;
+            stroke: #000;
+            stroke-width: 2px;
+            width: 30px;
+            height: 30px;
+        }
+        .details-container {
+            flex: 1;
+            padding-left: 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0; /* Allow this container to shrink */
+        }
+        /* Smaller details textarea */
+        .details-container textarea {
+            background-color: #fff;
+            color: #000;
+            border: 2px solid #000;
+            padding: 8px;
+            border-radius: 8px;
+            flex: 1;
+            font-size: 14px;
+            resize: none;
+            height: 70px;
+        }
+        /* Container to align model and temperature inputs */
+        .details-inputs {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .details-inputs label {
+            font-size: 14px;
+        }
+        .details-inputs select,
+        .details-inputs input[type="text"] {
+            padding: 5px;
+            font-size: 14px;
+            border: 1px solid #000;
+            border-radius: 4px;
+        }
+        .update-button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            background-color: #ff9800;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s, color 0.3s;
+            width: auto;
+            align-self: flex-start;
+        }
+        .update-button:hover {
+            background-color: #e68900;
+        }
+        /* Toggle Active button in the Details Panel */
+        .toggle-active-button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            background-color: #9c27b0;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s, color 0.3s;
+            width: auto;
+            align-self: flex-start;
+        }
+        .toggle-active-button:hover {
+            background-color: #7b1fa2;
+        }
+        /* Execution Tab Styles */
+        .execution-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0; /* Allow flex children to shrink */
+        }
+        .execution-container h2 {
+            margin: 0 0 10px 0;
+        }
+        /* Markdown output styles (replacing the textarea) */
+        .markdown-output {
+            flex: 1;
+            min-height: 0; /* Allow content to shrink and scroll */
+            padding: 10px;
+            border: 2px solid #000;
+            border-radius: 8px;
+            font-size: 16px;
+            overflow-y: auto;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <h1>Execution Plan Workflow</h1>
+    <!-- Tabs Navigation -->
+    <div class="tabs">
+        <button @click="currentTab = 'prompt'" :class="{ active: currentTab === 'prompt' }">Prompt</button>
+        <button @click="currentTab = 'plan'" :class="{ active: currentTab === 'plan' }">Plan</button>
+        <button @click="currentTab = 'execution'" :class="{ active: currentTab === 'execution' }">Execution</button>
+    </div>
+
+    <!-- Tab 1: Prompt -->
+    <div v-if="currentTab === 'prompt'" class="container prompt-container">
+        <h2>Step 1: Input Prompt</h2>
+        <textarea v-model="promptText" placeholder="Enter your prompt here..."></textarea>
+        <button @click="generatePlan" :disabled="generating">
+            Generate Execution Plan
+        </button>
+        <div v-if="planNodes.length">
+            <p><strong>Plan Overview:</strong> {{ planOverview }}</p>
+        </div>
+    </div>
+
+    <!-- Tab 2: Plan (View/Modify the Execution Plan) -->
+    <div v-if="currentTab === 'plan'" class="container">
+        <div class="plan-container">
+            <!-- Header with Plan Overview and Execute Plan button above the flow -->
+            <div class="plan-header">
+                <div class="flow-overview">
+                    <strong>Plan Overview:</strong> {{ planOverview }}
+                </div>
+                <button class="execute-button"
+                        @click="executePlanFromPlanTab"
+                        :disabled="executing">
+                    Execute Plan
+                </button>
+            </div>
+            <div class="plan-main">
+                <!-- Flow Diagram (Vertical) -->
+                <div class="flow-container">
+                    <div class="node-wrapper">
+                        <template v-for="(node, index) in planNodes" :key="node.id">
+                            <div class="flow-node" :class="{ inactive: !node.active }" @click="selectNode(node)">
+                                <div class="node-name">{{ node.name }}</div>
+                                <div class="node-meta">{{ node.meta }}</div>
+                                <!-- Inline Toggle Active Button -->
+                                <button class="toggle-active-inline" @click.stop="toggleActiveOnNode(node)">
+                                    {{ node.active ? 'Deactivate' : 'Activate' }}
+                                </button>
+                            </div>
+                            <div v-if="index < planNodes.length - 1" class="arrow">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M12 5v14M5 12l7 7 7-7"/>
+                                </svg>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <!-- Details Panel for a Selected Step -->
+                <div class="details-container">
+                    <h2 style="font-size:16px; margin-bottom:8px;">Step Details</h2>
+                    <!-- Editable details text area -->
+                    <textarea v-model="selectedNodeDetails" placeholder="Edit step details..."></textarea>
+                    <!-- Show model/temperature inputs and buttons only if a step is selected -->
+                    <template v-if="selectedNode">
+                        <div class="details-inputs">
+                            <label>Model:</label>
+                            <select v-model="selectedModel">
+                                <option value="gpt-4o-mini">gpt-4o-mini</option>
+                                <option value="o3-mini">o3-mini</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                            <template v-if="selectedModel !== 'o3-mini'">
+                                <label>Temperature:</label>
+                                <input type="text" v-model="selectedTemperature" placeholder="Enter temperature" style="width: 80px;"/>
+                            </template>
+                        </div>
+                        <button class="update-button" @click="updateNode">Update Step</button>
+                        <button class="toggle-active-button" @click="toggleActive">
+                            {{ selectedNode && selectedNode.active ? 'Deactivate Step' : 'Activate Step' }}
+                        </button>
+                    </template>
+                    <template v-else>
+                        <p>No step selected.</p>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 3: Execution -->
+    <div v-if="currentTab === 'execution'" class="container">
+        <div class="flow-overview">
+            <strong>Plan Overview:</strong> {{ planOverview }}
+        </div>
+        <div class="execution-container">
+            <h2>Step 3: Execution Result</h2>
+            <!-- Render Markdown output (scrollable if content overflows) -->
+            <div class="markdown-output" v-html="renderedMarkdown"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            currentTab: 'prompt',
+            promptText: '',
+            // Store the original user message.
+            originalUserMessage: '',
+            // The plan is represented as an array of nodes.
+            planNodes: [],
+            selectedNode: null,
+            selectedNodeDetails: 'Click on a step to see its details.',
+            selectedModel: 'gpt-4o-mini',
+            selectedTemperature: '1.0',
+            executionResult: '',
+            executing: false,
+            generating: false
+        },
+        computed: {
+            // Generates a summary of the flow using only active nodes.
+            planOverview() {
+                const activeNodes = this.planNodes.filter(node => node.active);
+                if (!activeNodes.length) return 'No active steps';
+                return activeNodes.map(node => node.name).join(' → ');
+            },
+            // Converts Markdown to HTML using marked.parse()
+            renderedMarkdown() {
+                return marked.parse(this.executionResult || '');
+            }
+        },
+        methods: {
+            // Generate an execution plan by calling the GET /managai endpoint.
+            generatePlan() {
+                if (!this.promptText.trim()) {
+                    alert('Please enter a prompt.');
+                    return;
+                }
+                // Preserve the original user message.
+                this.originalUserMessage = this.promptText;
+                this.generating = true;
+                fetch(`http://localhost:8080/managai?message=${encodeURIComponent(this.promptText)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log("Received data:", data);
+                        let newNodes = [];
+                        // Check for the new structure: an "agents" array.
+                        if (data.agents) {
+                            newNodes = data.agents.map(agent => ({
+                                id: agent.name,
+                                name: agent.name,
+                                meta: agent.model || agent.model_name,
+                                details: agent.system_message,
+                                active: true,
+                                model: agent.model || agent.model_name,
+                                temperature: (agent.temperature != null) ? agent.temperature.toString() : undefined
+                            }));
+                        } else {
+                            // Fallback to the old structure.
+                            const answersMap = data.answers || data;
+                            if (answersMap && Object.keys(answersMap).length > 0) {
+                                newNodes = Object.entries(answersMap)
+                                    .filter(([key, answer]) => answer != null)
+                                    .map(([key, answer]) => ({
+                                        id: key,
+                                        name: key,
+                                        meta: answer.model_name,
+                                        details: answer.system_message,
+                                        active: true,
+                                        model: answer.model_name,
+                                        temperature: (answer.temperature != null) ? answer.temperature.toString() : undefined
+                                    }));
+                            }
+                        }
+                        if (newNodes.length > 0) {
+                            this.planNodes = newNodes;
+                            this.currentTab = 'plan';
+                        } else {
+                            alert("No data received.");
+                        }
+                        this.generating = false;
+                    })
+                    .catch(error => {
+                        console.error("Error generating plan: ", error);
+                        alert("Error generating plan.");
+                        this.generating = false;
+                    });
+            },
+            // When a flow node is clicked, load its details and settings.
+            selectNode(node) {
+                this.selectedNode = node;
+                this.selectedNodeDetails = node.details;
+                this.selectedModel = node.model || 'gpt-4o-mini';
+                this.selectedTemperature = node.temperature || '1.0';
+            },
+            // Update the selected node with any changes made.
+            updateNode() {
+                if (this.selectedNode) {
+                    this.selectedNode.details = this.selectedNodeDetails;
+                    this.selectedNode.model = this.selectedModel;
+                    if (this.selectedModel !== 'o3-mini') {
+                        this.selectedNode.temperature = this.selectedTemperature;
+                    } else {
+                        this.selectedNode.temperature = undefined;
+                    }
+                    alert('Step updated.');
+                } else {
+                    alert('No step selected.');
+                }
+            },
+            // Toggle active state of the selected node (via details panel).
+            toggleActive() {
+                if (this.selectedNode) {
+                    this.selectedNode.active = !this.selectedNode.active;
+                } else {
+                    alert('No step selected.');
+                }
+            },
+            // Toggle active state of a given node (inline toggle button).
+            toggleActiveOnNode(node) {
+                node.active = !node.active;
+                if (this.selectedNode && this.selectedNode.id === node.id) {
+                    this.selectedNode.active = node.active;
+                }
+            },
+            // Execute the plan by calling the POST /managai endpoint.
+            executePlanFromPlanTab() {
+                if (!this.planNodes.length) {
+                    alert('No plan available to execute.');
+                    return;
+                }
+                const payload = {
+                    userMessage: this.originalUserMessage,
+                    agents: []
+                };
+                // Build payload so that each active node is represented as an object with the expected fields.
+                for (const node of this.planNodes.filter(n => n.active)) {
+                    const agentObj = {
+                        name: node.name,
+                        model: node.model,
+                        system_message: node.details
+                    };
+                    if (node.model !== 'o3-mini' && node.temperature != null) {
+                        agentObj.temperature = parseFloat(node.temperature);
+                    }
+                    payload.agents.push(agentObj);
+                }
+                console.log("Payload:", payload);
+                this.executing = true;
+                fetch("http://localhost:8080/managai", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                })
+                    .then(response => response.text())
+                    .then(result => {
+                        this.executionResult = result;
+                        this.currentTab = 'execution';
+                        this.executing = false;
+                    })
+                    .catch(error => {
+                        console.error("Error executing plan: ", error);
+                        alert("Error executing plan.");
+                        this.executing = false;
+                    });
+            }
+        }
+    });
+</script>
+</body>
+</html>
